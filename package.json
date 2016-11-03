@@ -1,0 +1,22 @@
+{
+  "name": "oidc-rs",
+  "version": "0.0.0",
+  "description": "OpenID Connect Resource Server Authentication for Node.js",
+  "main": "src/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "mocha -w"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anvilresearch/oidc-rs.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/anvilresearch/oidc-rs/issues"
+  },
+  "homepage": "https://github.com/anvilresearch/oidc-rs#readme"
+}
