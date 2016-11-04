@@ -18,5 +18,9 @@
   "bugs": {
     "url": "https://github.com/anvilresearch/oidc-rs/issues"
   },
-  "homepage": "https://github.com/anvilresearch/oidc-rs#readme"
+  "homepage": "https://github.com/anvilresearch/oidc-rs#readme",
+  "dependencies": {
+    "jose": "git+https://github.com/anvilresearch/jose.git",
+    "node-fetch": "^1.6.3"
+  }
 }
