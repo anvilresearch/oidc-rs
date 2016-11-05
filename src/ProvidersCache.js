@@ -31,8 +31,8 @@ class ProvidersCache {
   /**
    * from
    */
-  static from (providers) {
-    let cache = new ProvidersCache(providers)
+  static from (data) {
+    let cache = new ProvidersCache(data)
     let providers = cache.providers
     let promises = []
 
@@ -59,7 +59,7 @@ class ProvidersCache {
    */
   discover (issuer) {
     return fetch(`${issuer}/.well-known/openid-configuration`)
-      .then(validateStatus)
+      //.then(validateStatus)
       .then(response => response.json())
   }
 
@@ -74,7 +74,7 @@ class ProvidersCache {
    */
   jwks (endpoint) {
     return fetch(endpoint)
-      .then(validateStatus)
+      //.then(validateStatus)
       .then(response => response.json())
       .then(data => JWKSet.importKeys(data))
   }
@@ -110,7 +110,7 @@ class ProvidersCache {
 
     return this.discover(issuer)
       .then(configuration => provider.configuration = configuration)
-      .then(configuration => this.jwks(configuration.jwks_endpoint))
+      .then(configuration => this.jwks(configuration.jwks_uri))
       .then(jwks => provider.jwks = jwks)
       .then(() => {
         providers[issuer] = provider
@@ -123,4 +123,4 @@ class ProvidersCache {
 /**
  * Export
  */
-module.exports
+module.exports = ProvidersCache
