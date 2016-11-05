@@ -115,7 +115,7 @@ class ResourceServer {
     options = Object.assign({}, defaults, options)
 
     return (req, res, next) => {
-      AuthenticatedRequest.authenticate(req, res, next, options)
+      AuthenticatedRequest.authenticate(this, req, res, next, options)
     }
   }
 
