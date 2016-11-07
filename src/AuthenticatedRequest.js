@@ -155,7 +155,7 @@ class AuthenticatedRequest {
       return request.badRequest('Multiple authentication methods')
     }
 
-    if (param && contentType !== 'application/x-www-form-urlencoded') {
+    if (param && !contentType.includes('application/x-www-form-urlencoded')) {
       return request.badRequest('Invalid Content-Type')
     }
 
@@ -183,6 +183,10 @@ class AuthenticatedRequest {
     if (!token && optional !== true) {
       return request.unauthorized({realm})
     }
+
+    // TODO
+    // should we terminate the authentication algorithm and pass control to next
+    // middleware if authentication IS optional and a token is NOT present?
 
     return request
   }
@@ -484,6 +488,17 @@ class AuthenticatedRequest {
    * @param {AuthenticatedRequest} request
    */
   success (request) {
+    let {req, token, jwt, options} = request
+    let {tokenProperty, claimsProperty} = options
+
+    if (jwt) {
+      req[claimsProperty || 'claims'] = jwt.payload
+    }
+
+    if (jwt && tokenProperty) {
+      req[tokenProperty] = jwt
+    }
+
     request.next()
   }
 
