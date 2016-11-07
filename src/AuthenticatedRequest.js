@@ -4,6 +4,16 @@
 const {JWT} = require('jose')
 
 /**
+ * Errors
+ */
+const {
+  BadRequestError,
+  ForbiddenError,
+  InternalServerError,
+  UnauthorizedError
+} = require('./errors')
+
+/**
  * AuthenticatedRequest
  */
 class AuthenticatedRequest {
@@ -271,11 +281,11 @@ class AuthenticatedRequest {
         return request.forbidden({realm})
       }
 
-      if (Array.isArray(aud) && !audience.some(id => aud.includes(id))) {
+      if (Array.isArray(aud) && audience && !audience.some(id => aud.includes(id))) {
         return request.forbidden({realm})
       }
 
-      if (typeof aud === 'string' && !audience.includes(aud)) {
+      if (typeof aud === 'string' && audience && !audience.includes(aud)) {
         return request.forbidden({realm})
       }
 
@@ -512,14 +522,25 @@ class AuthenticatedRequest {
    * @returns {Promise}
    */
   badRequest (description) {
-    let {res} = this
+    let {res, next, options} = this
 
-    res.status(400).json({
+    let params = {
       error: 'invalid_request',
       error_description: description
-    })
+    }
 
-    return Promise.reject()
+    res.status(400)
+
+    // pass error
+    if (options.handleErrors === false) {
+      next(new BadRequestError(params))
+      return Promise.reject()
+
+    // respond
+    } else {
+      res.json(params)
+      return Promise.reject()
+    }
   }
 
   /**
@@ -532,14 +553,24 @@ class AuthenticatedRequest {
    * @returns {Promise}
    */
   unauthorized (params = {}) {
-    let {res} = this
+    let {res, next, options} = this
 
     res.set({
       'WWW-Authenticate': `Bearer ${this.encodeChallengeParams(params)}`
     })
 
-    res.status(401).send('Unauthorized')
-    return Promise.reject()
+    res.status(401)
+
+    // pass error
+    if (options.handleErrors === false) {
+      next(new UnauthorizedError(params))
+      return Promise.reject()
+
+    // respond
+    } else {
+      res.send('Unauthorized')
+      return Promise.reject()
+    }
   }
 
   /**
@@ -552,14 +583,24 @@ class AuthenticatedRequest {
    * @returns {Promise}
    */
   forbidden (params = {}) {
-    let {res} = this
+    let {res, next, options} = this
 
     res.set({
       'WWW-Authenticate': `Bearer ${this.encodeChallengeParams(params)}`
     })
 
-    res.status(403).send('Forbidden')
-    return Promise.reject()
+    res.status(403)
+
+    // pass error
+    if (options.handleErrors === false) {
+      next(new ForbiddenError(params))
+      return Promise.reject()
+
+    // respond
+    } else {
+      res.send('Forbidden')
+      return Promise.reject()
+    }
   }
 
   /**
@@ -571,8 +612,13 @@ class AuthenticatedRequest {
    * @param {Error} error
    */
   internalServerError (error) {
-    console.log(error)
-    this.res.status(500).send('Internal Server Error')
+    let {res, next, options} = this
+
+    if (options.handleErrors === false) {
+      next(error)
+    } else {
+      res.status(500).send('Internal Server Error')
+    }
   }
 
   /**
