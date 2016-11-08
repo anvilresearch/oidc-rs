@@ -478,7 +478,7 @@ class AuthenticatedRequest {
     if (Array.isArray(scopes)) {
 
       // ensure all expected scopes are present in the token
-      if (!scopes.every(expected => scope.includes(expected))) {
+      if (!scope || !scopes.every(expected => scope.includes(expected))) {
         return request.forbidden({
           error: 'insufficient_scope',
           error_description: 'Access token has insufficient scope'
