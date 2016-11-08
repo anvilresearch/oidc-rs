@@ -194,10 +194,6 @@ class AuthenticatedRequest {
       return request.unauthorized({realm})
     }
 
-    // TODO
-    // should we terminate the authentication algorithm and pass control to next
-    // middleware if authentication IS optional and a token is NOT present?
-
     return request
   }
 
@@ -213,6 +209,10 @@ class AuthenticatedRequest {
   validateAccessToken (request) {
     let {token, providers, options} = request
     let {realm} = options
+
+    if (options.optional && !token) {
+      return request
+    }
 
     return Promise.resolve(request)
       .then(request.decode)
