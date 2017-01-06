@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/anvilresearch/oidc-rs#readme",
   "dependencies": {
-    "jose": "git+https://github.com/anvilresearch/jose.git",
+    "jose": "git://github.com/anvilresearch/jose.git#lib",
     "node-fetch": "^1.6.3"
   },
   "devDependencies": {
