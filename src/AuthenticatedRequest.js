@@ -57,14 +57,7 @@ class AuthenticatedRequest {
       .then(request.requireAccessToken)
       .then(request.validateAccessToken)
       .then(request.success)
-
-      // do nothing unless there's an explicit error argument
-      // other errors are already handled
-      .catch(error => {
-        if (error) {
-          request.internalServerError(error)
-        }
-      })
+      .catch(request.error.bind(request))
   }
 
   /**
@@ -531,16 +524,17 @@ class AuthenticatedRequest {
 
     res.status(400)
 
+    let error = new BadRequestError(params)
+
     // pass error
     if (options.handleErrors === false) {
-      next(new BadRequestError(params))
-      return Promise.reject()
-
+      next(error)
     // respond
     } else {
       res.json(params)
-      return Promise.reject()
     }
+
+    throw error
   }
 
   /**
@@ -561,16 +555,17 @@ class AuthenticatedRequest {
 
     res.status(401)
 
+    let error = new UnauthorizedError(params)
+
     // pass error
     if (options.handleErrors === false) {
-      next(new UnauthorizedError(params))
-      return Promise.reject()
-
+      next(error)
     // respond
     } else {
       res.send('Unauthorized')
-      return Promise.reject()
     }
+
+    throw error
   }
 
   /**
@@ -591,15 +586,38 @@ class AuthenticatedRequest {
 
     res.status(403)
 
+    let error = new ForbiddenError(params)
+
     // pass error
     if (options.handleErrors === false) {
-      next(new ForbiddenError(params))
-      return Promise.reject()
-
+      next(error)
     // respond
     } else {
       res.send('Forbidden')
-      return Promise.reject()
+    }
+
+    throw error
+  }
+
+  /**
+   * Serves as a general purpose error handler for `.catch()` clauses in
+   * Promise chains. Example usage:
+   *
+   *   ```
+   *   return Promise.resolve(request)
+   *     .then(request.validate)
+   *     .then(request.stepOne)
+   *     .then(request.stepTwo)  // etc.
+   *     .catch(request.error.bind(request))
+   *   ```
+   *
+   * @param error {Error}
+   */
+  error (error) {
+    console.log('In rs.error():', error)
+
+    if (!error.handled) {
+      this.internalServerError(error)
     }
   }
 
