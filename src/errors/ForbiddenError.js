@@ -5,6 +5,7 @@ class ForbiddenError extends Error {
   constructor (params) {
     super('Forbidden')
 
+    this.handled = true
     this.statusCode = 403
     this.realm = params.realm
     this.error = params.error
