@@ -14,6 +14,17 @@
     "url": "git+https://github.com/anvilresearch/oidc-rs.git"
   },
   "author": "",
+  "contributors": [
+    {
+      "name": "Christian Smith",
+      "email": "smith@anvil.io",
+      "url": "http://anvil.io"
+    },
+    {
+      "name": "Dmitri Zagidulin",
+      "url": "https://github.com/dmitrizagidulin"
+    }
+  ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/anvilresearch/oidc-rs/issues"
