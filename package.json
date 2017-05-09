@@ -1,5 +1,5 @@
 {
-  "name": "oidc-rs",
+  "name": "@trust/oidc-rs",
   "version": "0.0.0",
   "description": "OpenID Connect Resource Server Authentication for Node.js",
   "main": "src/index.js",
