@@ -20,13 +20,15 @@
   },
   "homepage": "https://github.com/anvilresearch/oidc-rs#readme",
   "dependencies": {
-    "jose": "git://github.com/anvilresearch/jose.git#rc-006",
+    "jose": "git://github.com/anvilresearch/jose.git#rc-007",
     "node-fetch": "^1.6.3"
   },
   "devDependencies": {
     "chai": "^3.5.0",
-    "mocha": "^3.2.0",
-    "sinon": "^1.17.6",
-    "sinon-chai": "^2.8.0"
+    "chai-as-promised": "^6.0.0",
+    "dirty-chai": "^1.2.2",
+    "mocha": "^3.4.2",
+    "sinon": "^2.3.1",
+    "sinon-chai": "^2.10.0"
   }
 }
