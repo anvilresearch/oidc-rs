@@ -73,7 +73,7 @@ class AuthenticatedRequest {
       .then(request.requireAccessToken)
       .then(request.validateAccessToken)
       .then(request.success)
-      .catch(request.error.bind(request))
+      .catch(error => request.error(error))
   }
 
   /**
@@ -91,7 +91,7 @@ class AuthenticatedRequest {
     let {token, req} = request
     let authorization = req.headers && req.headers.authorization
 
-    if (authorization && token) {
+    if (authorization && token) {  // Where is request.token initialized?
       return request.badRequest('Multiple authentication methods')
     }
 

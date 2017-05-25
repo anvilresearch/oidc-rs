@@ -1,16 +1,15 @@
 /**
  * Test dependencies
  */
-const cwd = process.cwd()
 const path = require('path')
 const chai = require('chai')
 const sinon = require('sinon')
-const sinonChai = require('sinon-chai')
+const HttpMocks = require('node-mocks-http')
 
 /**
  * Assertions
  */
-chai.use(sinonChai)
+chai.use(require('sinon-chai'))
 chai.should()
 let expect = chai.expect
 
@@ -18,11 +17,13 @@ let expect = chai.expect
  * Code under test
  */
 const AuthenticatedRequest = require('../src/AuthenticatedRequest')
+const ResourceServer = require('../src/ResourceServer')
 
 /**
  * Tests
  */
 describe('AuthenticatedRequest', () => {
+  // let request = new AuthenticatedRequest(rs, req, res, next, options)
 
   describe('constructor', () => {
     it('should set rs')
@@ -35,9 +36,32 @@ describe('AuthenticatedRequest', () => {
   describe('authenticate', () => {})
 
   describe('validateAuthorizationHeader', () => {
+    let rs, res, next, options
+
+    beforeEach(() => {
+      rs = new ResourceServer({})
+      res = HttpMocks.createResponse()
+      next = () => {}
+      options = { handleErrors: false }
+    })
+
     describe('with multiple authentication methods', () => {
-      it('should reject undefined value')
-      it('should respond with "Bad Request"')
+      it('should respond with "Bad Request"', () => {
+        let req = {
+          headers: { authorization: 'Bearer 1234' }
+        }
+
+        let request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.token = '1234'
+
+        sinon.spy(request, 'badRequest')
+
+        expect(() => request.validateAuthorizationHeader(request))
+          .to.throw(/Multiple authentication methods/)
+
+        expect(request.badRequest)
+          .to.have.been.calledWith('Multiple authentication methods')
+      })
     })
 
     describe('with invalid authorization header', () => {
