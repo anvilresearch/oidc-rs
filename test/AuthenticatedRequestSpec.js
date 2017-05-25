@@ -45,7 +45,7 @@ describe('AuthenticatedRequest', () => {
       req = HttpMocks.createRequest()
       res = HttpMocks.createResponse()
       next = () => {}
-      options = { handleErrors: false }
+      options = {}
       request = new AuthenticatedRequest(rs, req, res, next, options)
       sinon.spy(request, 'badRequest')
     })
@@ -135,18 +135,51 @@ describe('AuthenticatedRequest', () => {
   })
 
   describe('requireAccessToken', () => {
+    let rs, req, res, next, options, request
+
+    beforeEach(() => {
+      rs = new ResourceServer({})
+      req = HttpMocks.createRequest()
+      res = HttpMocks.createResponse()
+      next = () => {}
+      options = {}
+      request = new AuthenticatedRequest(rs, req, res, next, options)
+
+      sinon.spy(request, 'unauthorized')
+    })
+
     describe('with mandatory authentication and missing bearer token', () => {
-      it('should reject undefined value')
-      it('should respond with "Unauthorized')
+      it('should respond with "Unauthorized', () => {
+        // By default: request.options.optional = false
+        // request has no token set
+
+        expect(() => request.requireAccessToken(request))
+          .to.throw(/Unauthorized/)
+
+        expect(request.unauthorized).to.have.been.called()
+      })
     })
 
     describe('with optional authentication and absent bearer token', () => {
-      it('should return its argument')
+      it('should return its argument', () => {
+        request.options.optional = true
+
+        let returnedRequest = request.requireAccessToken(request)
+
+        expect(returnedRequest).to.equal(request)
+      })
+
       it('should succeed the process')
     })
 
     describe('with token present', () => {
-      it('should return its argument')
+      it('should return its argument', () => {
+        request.token = '1234'
+
+        let returnedRequest = request.requireAccessToken(request)
+
+        expect(returnedRequest).to.equal(request)
+      })
     })
   })
 
