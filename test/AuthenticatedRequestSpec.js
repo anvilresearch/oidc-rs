@@ -10,6 +10,8 @@ const HttpMocks = require('node-mocks-http')
  * Assertions
  */
 chai.use(require('sinon-chai'))
+chai.use(require('dirty-chai'))
+chai.use(require('chai-as-promised'))
 chai.should()
 let expect = chai.expect
 
@@ -36,25 +38,22 @@ describe('AuthenticatedRequest', () => {
   describe('authenticate', () => {})
 
   describe('validateAuthorizationHeader', () => {
-    let rs, res, next, options
+    let rs, req, res, next, options, request
 
     beforeEach(() => {
       rs = new ResourceServer({})
+      req = HttpMocks.createRequest()
       res = HttpMocks.createResponse()
       next = () => {}
       options = { handleErrors: false }
+      request = new AuthenticatedRequest(rs, req, res, next, options)
+      sinon.spy(request, 'badRequest')
     })
 
     describe('with multiple authentication methods', () => {
       it('should respond with "Bad Request"', () => {
-        let req = {
-          headers: { authorization: 'Bearer 1234' }
-        }
-
-        let request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.req.headers = { authorization: 'Bearer 1234' }
         request.token = '1234'
-
-        sinon.spy(request, 'badRequest')
 
         expect(() => request.validateAuthorizationHeader(request))
           .to.throw(/Multiple authentication methods/)
@@ -65,18 +64,39 @@ describe('AuthenticatedRequest', () => {
     })
 
     describe('with invalid authorization header', () => {
-      it('should reject undefined value')
-      it('should respond with "Bad Request"')
+      it('should respond with "Bad Request"', () => {
+        request.req.headers = { authorization: 'Bearer' }
+
+        expect(() => request.validateAuthorizationHeader(request))
+          .to.throw(/Invalid authorization header/)
+
+        expect(request.badRequest)
+          .to.have.been.calledWith('Invalid authorization header')
+      })
     })
 
     describe('with invalid authorization scheme', () => {
-      it('should reject undefined value')
-      it('should respond with "Bad Request"')
+      it('should respond with "Bad Request"', () => {
+        request.req.headers = { authorization: 'Something 1234' }
+
+        expect(() => request.validateAuthorizationHeader(request))
+          .to.throw(/Invalid authorization scheme/)
+
+        expect(request.badRequest)
+          .to.have.been.calledWith('Invalid authorization scheme')
+      })
     })
 
     describe('with well-formed authorization header', () => {
       it('should return its argument')
-      it('should set request token')
+
+      it('should set request token', () => {
+        request.req.headers = { authorization: 'Bearer 1234' }
+
+        let returnedRequest = request.validateAuthorizationHeader(request)
+
+        expect(returnedRequest.token).to.equal('1234')
+      })
     })
   })
 
