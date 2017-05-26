@@ -91,7 +91,7 @@ class AuthenticatedRequest {
     let {token, req} = request
     let authorization = req.headers && req.headers.authorization
 
-    if (authorization && token) {  // Where is request.token initialized?
+    if (authorization && token) {
       return request.badRequest('Multiple authentication methods')
     }
 
@@ -221,8 +221,7 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateAccessToken (request) {
-    let {token, providers, options} = request
-    let {realm} = options
+    let {token, options} = request
 
     if (options.optional && !token) {
       return request
