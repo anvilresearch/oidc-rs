@@ -31,7 +31,7 @@
   },
   "homepage": "https://github.com/anvilresearch/oidc-rs#readme",
   "dependencies": {
-    "@trust/jose": "^0.1.1",
+    "@trust/jose": "git://github.com/anvilresearch/jose.git#rc-008",
     "node-fetch": "^1.6.3"
   },
   "devDependencies": {
