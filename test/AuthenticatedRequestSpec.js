@@ -184,7 +184,9 @@ describe('AuthenticatedRequest', () => {
   })
 
   describe('validateAccessToken', () => {
+    it('should return request if optional auth and no token', () => {
 
+    })
   })
 
   describe('decode', () => {

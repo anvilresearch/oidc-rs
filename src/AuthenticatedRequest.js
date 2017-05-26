@@ -221,8 +221,7 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateAccessToken (request) {
-    let {token, providers, options} = request
-    let {realm} = options
+    let {token, options} = request
 
     if (options.optional && !token) {
       return request
