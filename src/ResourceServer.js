@@ -17,8 +17,9 @@ class ResourceServer {
    * restore cached provider metadata and cryptographic keys obtained previously
    * through OpenID Connect Discovery.
    *
-   * @param {Object} options
-   * @param {Object} options.providers
+   * @param [options={}] {Object}
+   * @param [options.providers] {Object}
+   * @param [options.defaults] {Object}
    *
    * @example
    * ```
@@ -83,7 +84,7 @@ class ResourceServer {
    * @param {Array}  options.deny.issuers
    * @param {Array}  options.deny.audience
    * @param {Array}  options.deny.subjects
-   * @param {}
+   * @param {Array<string>} options.scope
    *
    * @returns {Function}
    *

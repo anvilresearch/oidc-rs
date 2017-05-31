@@ -3,7 +3,7 @@
  */
 class BadRequestError extends Error {
   constructor (params) {
-    super('invalid_request')
+    super(params.error_description)
 
     this.handled = true
     this.statusCode = 400

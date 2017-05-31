@@ -1,16 +1,17 @@
 /**
  * Test dependencies
  */
-const cwd = process.cwd()
 const path = require('path')
 const chai = require('chai')
 const sinon = require('sinon')
-const sinonChai = require('sinon-chai')
+const HttpMocks = require('node-mocks-http')
 
 /**
  * Assertions
  */
-chai.use(sinonChai)
+chai.use(require('sinon-chai'))
+chai.use(require('dirty-chai'))
+chai.use(require('chai-as-promised'))
 chai.should()
 let expect = chai.expect
 
@@ -18,11 +19,13 @@ let expect = chai.expect
  * Code under test
  */
 const AuthenticatedRequest = require('../src/AuthenticatedRequest')
+const ResourceServer = require('../src/ResourceServer')
 
 /**
  * Tests
  */
 describe('AuthenticatedRequest', () => {
+  // let request = new AuthenticatedRequest(rs, req, res, next, options)
 
   describe('constructor', () => {
     it('should set rs')
@@ -35,24 +38,65 @@ describe('AuthenticatedRequest', () => {
   describe('authenticate', () => {})
 
   describe('validateAuthorizationHeader', () => {
+    let rs, req, res, next, options, request
+
+    beforeEach(() => {
+      rs = new ResourceServer({})
+      req = HttpMocks.createRequest()
+      res = HttpMocks.createResponse()
+      next = () => {}
+      options = {}
+      request = new AuthenticatedRequest(rs, req, res, next, options)
+      sinon.spy(request, 'badRequest')
+    })
+
     describe('with multiple authentication methods', () => {
-      it('should reject undefined value')
-      it('should respond with "Bad Request"')
+      it('should respond with "Bad Request"', () => {
+        request.req.headers = { authorization: 'Bearer 1234' }
+        request.token = '1234'
+
+        expect(() => request.validateAuthorizationHeader(request))
+          .to.throw(/Multiple authentication methods/)
+
+        expect(request.badRequest)
+          .to.have.been.calledWith('Multiple authentication methods')
+      })
     })
 
     describe('with invalid authorization header', () => {
-      it('should reject undefined value')
-      it('should respond with "Bad Request"')
+      it('should respond with "Bad Request"', () => {
+        request.req.headers = { authorization: 'Bearer' }
+
+        expect(() => request.validateAuthorizationHeader(request))
+          .to.throw(/Invalid authorization header/)
+
+        expect(request.badRequest)
+          .to.have.been.calledWith('Invalid authorization header')
+      })
     })
 
     describe('with invalid authorization scheme', () => {
-      it('should reject undefined value')
-      it('should respond with "Bad Request"')
+      it('should respond with "Bad Request"', () => {
+        request.req.headers = { authorization: 'Something 1234' }
+
+        expect(() => request.validateAuthorizationHeader(request))
+          .to.throw(/Invalid authorization scheme/)
+
+        expect(request.badRequest)
+          .to.have.been.calledWith('Invalid authorization scheme')
+      })
     })
 
     describe('with well-formed authorization header', () => {
       it('should return its argument')
-      it('should set request token')
+
+      it('should set request token', () => {
+        request.req.headers = { authorization: 'Bearer 1234' }
+
+        let returnedRequest = request.validateAuthorizationHeader(request)
+
+        expect(returnedRequest.token).to.equal('1234')
+      })
     })
   })
 
@@ -91,18 +135,51 @@ describe('AuthenticatedRequest', () => {
   })
 
   describe('requireAccessToken', () => {
+    let rs, req, res, next, options, request
+
+    beforeEach(() => {
+      rs = new ResourceServer({})
+      req = HttpMocks.createRequest()
+      res = HttpMocks.createResponse()
+      next = () => {}
+      options = {}
+      request = new AuthenticatedRequest(rs, req, res, next, options)
+
+      sinon.spy(request, 'unauthorized')
+    })
+
     describe('with mandatory authentication and missing bearer token', () => {
-      it('should reject undefined value')
-      it('should respond with "Unauthorized')
+      it('should respond with "Unauthorized', () => {
+        // By default: request.options.optional = false
+        // request has no token set
+
+        expect(() => request.requireAccessToken(request))
+          .to.throw(/Unauthorized/)
+
+        expect(request.unauthorized).to.have.been.called()
+      })
     })
 
     describe('with optional authentication and absent bearer token', () => {
-      it('should return its argument')
+      it('should return its argument', () => {
+        request.options.optional = true
+
+        let returnedRequest = request.requireAccessToken(request)
+
+        expect(returnedRequest).to.equal(request)
+      })
+
       it('should succeed the process')
     })
 
     describe('with token present', () => {
-      it('should return its argument')
+      it('should return its argument', () => {
+        request.token = '1234'
+
+        let returnedRequest = request.requireAccessToken(request)
+
+        expect(returnedRequest).to.equal(request)
+      })
     })
   })
 
