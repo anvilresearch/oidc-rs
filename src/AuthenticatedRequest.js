@@ -20,6 +20,22 @@ class AuthenticatedRequest {
 
   /**
    * constructor
+   *
+   * @param {ResourceServer} rs
+   * @param {IncomingRequest} req
+   * @param {ServerResponse} res
+   * @param {Function} next
+   *
+   * @param {Object}   options
+   * @param {boolean} [options.query]
+   * @param {boolean} [options.optional]
+   * @param {string}  [options.realm]
+   * @param {Object}  [options.allow]
+   * @param {Object}  [options.deny]
+   * @param {Array}   [options.scopes]
+   * @param {string}  [options.tokenProperty]
+   * @param {string}  [options.claimsProperty]
+   * @param {boolean} [options.handleErrors]
    */
   constructor (rs, req, res, next, options) {
     this.rs = rs
@@ -57,14 +73,7 @@ class AuthenticatedRequest {
       .then(request.requireAccessToken)
       .then(request.validateAccessToken)
       .then(request.success)
-
-      // do nothing unless there's an explicit error argument
-      // other errors are already handled
-      .catch(error => {
-        if (error) {
-          request.internalServerError(error)
-        }
-      })
+      .catch(error => request.error(error))
   }
 
   /**
@@ -75,6 +84,7 @@ class AuthenticatedRequest {
    * Trigger an error response in the event the header is misused.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateAuthorizationHeader (request) {
@@ -113,6 +123,7 @@ class AuthenticatedRequest {
    * by setting the `query` option to `true`.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateQueryParameter (request) {
@@ -154,6 +165,7 @@ class AuthenticatedRequest {
    * Trigger an error response in the event the form parameter is misused.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateBodyParameter (request) {
@@ -184,6 +196,7 @@ class AuthenticatedRequest {
    * is optional.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   requireAccessToken (request) {
@@ -204,11 +217,11 @@ class AuthenticatedRequest {
    * Validate all aspects of an access token.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateAccessToken (request) {
-    let {token, providers, options} = request
-    let {realm} = options
+    let {token, options} = request
 
     if (options.optional && !token) {
       return request
@@ -233,6 +246,7 @@ class AuthenticatedRequest {
    * AuthenticatedRequest instance.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   decode (request) {
@@ -267,6 +281,7 @@ class AuthenticatedRequest {
    * configured using the "allow" option.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   allow (request) {
@@ -305,6 +320,7 @@ class AuthenticatedRequest {
    * configured using the "deny" option.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   deny (request) {
@@ -353,6 +369,7 @@ class AuthenticatedRequest {
    * fails.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   resolveKeys (request) {
@@ -393,6 +410,7 @@ class AuthenticatedRequest {
    * Verify the access token signature.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   verifySignature (request) {
@@ -414,6 +432,7 @@ class AuthenticatedRequest {
    * Ensures the access token has not expired.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateExpiry (request) {
@@ -438,6 +457,7 @@ class AuthenticatedRequest {
    * Ensures the access token has become active.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateNotBefore (request) {
@@ -463,6 +483,7 @@ class AuthenticatedRequest {
    * Ensures the access token has sufficient scope.
    *
    * @param {AuthenticatedRequest} request
+   *
    * @returns {AuthenticatedRequest}
    */
   validateScope (request) {
@@ -519,6 +540,7 @@ class AuthenticatedRequest {
    * Respond with 400 status code.
    *
    * @param {string} description
+   *
    * @returns {Promise}
    */
   badRequest (description) {
@@ -531,16 +553,17 @@ class AuthenticatedRequest {
 
     res.status(400)
 
+    let error = new BadRequestError(params)
+
     // pass error
     if (options.handleErrors === false) {
-      next(new BadRequestError(params))
-      return Promise.reject()
-
+      next(error)
     // respond
     } else {
       res.json(params)
-      return Promise.reject()
     }
+
+    throw error
   }
 
   /**
@@ -550,6 +573,7 @@ class AuthenticatedRequest {
    * Respond with 401 status code and WWW-Authenticate challenge.
    *
    * @param {Object} params
+   *
    * @returns {Promise}
    */
   unauthorized (params = {}) {
@@ -561,16 +585,17 @@ class AuthenticatedRequest {
 
     res.status(401)
 
+    let error = new UnauthorizedError(params)
+
     // pass error
     if (options.handleErrors === false) {
-      next(new UnauthorizedError(params))
-      return Promise.reject()
-
+      next(error)
     // respond
     } else {
       res.send('Unauthorized')
-      return Promise.reject()
     }
+
+    throw error
   }
 
   /**
@@ -591,15 +616,38 @@ class AuthenticatedRequest {
 
     res.status(403)
 
+    let error = new ForbiddenError(params)
+
     // pass error
     if (options.handleErrors === false) {
-      next(new ForbiddenError(params))
-      return Promise.reject()
-
+      next(error)
     // respond
     } else {
       res.send('Forbidden')
-      return Promise.reject()
+    }
+
+    throw error
+  }
+
+  /**
+   * Serves as a general purpose error handler for `.catch()` clauses in
+   * Promise chains. Example usage:
+   *
+   *   ```
+   *   return Promise.resolve(request)
+   *     .then(request.validate)
+   *     .then(request.stepOne)
+   *     .then(request.stepTwo)  // etc.
+   *     .catch(request.error.bind(request))
+   *   ```
+   *
+   * @param error {Error}
+   */
+  error (error) {
+    console.log('In rs.error():', error)
+
+    if (!error.handled) {
+      this.internalServerError(error)
     }
   }
 
@@ -628,6 +676,7 @@ class AuthenticatedRequest {
    * Encode parameters for WWW-Authenticate challenge header.
    *
    * @param {Object} params
+   *
    * @return {string}
    */
   encodeChallengeParams (params) {

@@ -5,6 +5,7 @@ class UnauthorizedError extends Error {
   constructor (params) {
     super('Unauthorized')
 
+    this.handled = true
     this.statusCode = 401
     this.realm = params.realm
     this.error = params.error
