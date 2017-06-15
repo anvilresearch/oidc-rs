@@ -46,7 +46,7 @@ class ResourceServer {
     }
 
     if (!(this.providers instanceof ProvidersCache)) {
-      throw new DataError('providers option must be an instance of ProvidersCache')
+      throw new Error('providers option must be an instance of ProvidersCache')
     }
   }
 
