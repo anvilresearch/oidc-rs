@@ -224,7 +224,7 @@ class AuthenticatedRequest {
     let {token, options} = request
 
     if (options.optional && !token) {
-      return request
+      return Promise.resolve(request)
     }
 
     return Promise.resolve(request)
@@ -250,7 +250,8 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   decode (request) {
-    let {token, jwt, options: {realm}} = request
+    let jwt
+    let {token, options: {realm}} = request
 
     // decode and validate the token
     try {
@@ -287,26 +288,28 @@ class AuthenticatedRequest {
   allow (request) {
     let {jwt, options} = request
     let {allow, realm} = options
+
+    if (!allow) {
+      return request
+    }
+
     let {iss, aud, sub} = jwt.payload
+    let {issuers, audience, subjects} = allow
 
-    if (allow) {
-      let {issuers, audience, subjects} = allow
+    if (issuers && !issuers.includes(iss)) {
+      return request.forbidden({realm})
+    }
 
-      if (issuers && !issuers.includes(iss)) {
-        return request.forbidden({realm})
-      }
+    if (Array.isArray(aud) && audience && !audience.some(id => aud.includes(id))) {
+      return request.forbidden({realm})
+    }
 
-      if (Array.isArray(aud) && audience && !audience.some(id => aud.includes(id))) {
-        return request.forbidden({realm})
-      }
+    if (typeof aud === 'string' && audience && !audience.includes(aud)) {
+      return request.forbidden({realm})
+    }
 
-      if (typeof aud === 'string' && audience && !audience.includes(aud)) {
-        return request.forbidden({realm})
-      }
-
-      if (subjects && !subjects.includes(sub)) {
-        return request.forbidden({realm})
-      }
+    if (subjects && !subjects.includes(sub)) {
+      return request.forbidden({realm})
     }
 
     return request
@@ -326,26 +329,28 @@ class AuthenticatedRequest {
   deny (request) {
     let {jwt, options} = request
     let {deny, realm} = options
+
+    if (!deny) {
+      return request
+    }
+
     let {iss, aud, sub} = jwt.payload
+    let {issuers, audience, subjects} = deny
 
-    if (deny) {
-      let {issuers, audience, subjects} = deny
+    if (issuers && issuers.includes(iss)) {
+      return request.forbidden({realm})
+    }
 
-      if (issuers && issuers.includes(iss)) {
-        return request.forbidden({realm})
-      }
+    if (Array.isArray(aud) && audience.some(id => aud.includes(id))) {
+      return request.forbidden({realm})
+    }
 
-      if (Array.isArray(aud) && audience.some(id => aud.includes(id))) {
-        return request.forbidden({realm})
-      }
+    if (typeof aud === 'string' && audience.includes(aud)) {
+      return request.forbidden({realm})
+    }
 
-      if (typeof aud === 'string' && audience.includes(aud)) {
-        return request.forbidden({realm})
-      }
-
-      if (subjects && subjects.includes(sub)) {
-        return request.forbidden({realm})
-      }
+    if (subjects && subjects.includes(sub)) {
+      return request.forbidden({realm})
     }
 
     return request
@@ -385,7 +390,7 @@ class AuthenticatedRequest {
 
       // try rotating keys
       } else {
-        return providers.rotate(issuer).then(provider => {
+        return providers.rotate(iss).then(provider => {
           // key matched
           if (jwt.resolveKeys(provider.jwks)) {
             return request
@@ -395,7 +400,7 @@ class AuthenticatedRequest {
             return request.unauthorized({
               realm,
               error: 'invalid_token',
-              error_descripton: 'Cannot find key to verify JWT signature'
+              error_description: 'Cannot find key to verify JWT signature'
             })
           }
         })
@@ -443,7 +448,7 @@ class AuthenticatedRequest {
       return request.unauthorized({
         realm,
         error: 'invalid_token',
-        error_description: 'Access token is expired.'
+        error_description: 'Access token is expired'
       })
     }
 
@@ -468,7 +473,7 @@ class AuthenticatedRequest {
       return request.unauthorized({
         realm,
         error: 'invalid_token',
-        error_description: 'Access token is not yet active.'
+        error_description: 'Access token is not yet active'
       })
     }
 
@@ -501,6 +506,7 @@ class AuthenticatedRequest {
       // ensure all expected scopes are present in the token
       if (!scope || !scopes.every(expected => scope.includes(expected))) {
         return request.forbidden({
+          realm,
           error: 'insufficient_scope',
           error_description: 'Access token has insufficient scope'
         })
