@@ -230,6 +230,7 @@ class AuthenticatedRequest {
 
     return Promise.resolve(request)
       .then(request.decode)
+      .then(request.validatePoPToken)
       .then(request.allow)
       .then(request.deny)
       .then(request.resolveKeys)
@@ -275,6 +276,32 @@ class AuthenticatedRequest {
       request.token = BearerToken.from(jwt)
     } catch (err) {
       return request.badRequest(err.error_description)
+    }
+
+    return request
+  }
+
+  /**
+   * validatePoPToken
+   *
+   * @description
+   * Validate the outer Proof of Possession token, if applicable.
+   *
+   * @param {AuthenticatedRequest} request
+   *
+   * @returns {AuthenticatedRequest}
+   */
+  validatePoPToken (request) {
+    let {token, options: {realm}} = request
+
+    try {
+      token.validatePoPToken()
+    } catch (err) {
+      return request.unauthorized({
+        realm,
+        error: err.error,
+        error_description: err.error_description
+      })
     }
 
     return request
