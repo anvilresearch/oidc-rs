@@ -2,6 +2,7 @@
  * Dependencies
  */
 const {JWT} = require('@trust/jose')
+const BearerToken = require('./BearerToken')
 
 /**
  * Errors
@@ -9,7 +10,7 @@ const {JWT} = require('@trust/jose')
 const {
   BadRequestError,
   ForbiddenError,
-  InternalServerError,
+  // InternalServerError,
   UnauthorizedError
 } = require('./errors')
 
@@ -270,7 +271,12 @@ class AuthenticatedRequest {
       return request.badRequest('Access token is invalid')
     }
 
-    request.jwt = jwt
+    try {
+      request.token = BearerToken.from(jwt)
+    } catch (err) {
+      return request.badRequest(err.error_description)
+    }
+
     return request
   }
 
@@ -286,14 +292,14 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   allow (request) {
-    let {jwt, options} = request
+    let {token, options} = request
     let {allow, realm} = options
 
     if (!allow) {
       return request
     }
 
-    let {iss, aud, sub} = jwt.payload
+    let {iss, aud, sub} = token
     let {issuers, audience, subjects} = allow
 
     if (issuers && !issuers.includes(iss)) {
@@ -327,14 +333,14 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   deny (request) {
-    let {jwt, options} = request
+    let {token, options} = request
     let {deny, realm} = options
 
     if (!deny) {
       return request
     }
 
-    let {iss, aud, sub} = jwt.payload
+    let {iss, aud, sub} = token
     let {issuers, audience, subjects} = deny
 
     if (issuers && issuers.includes(iss)) {
@@ -380,19 +386,19 @@ class AuthenticatedRequest {
   resolveKeys (request) {
     let providers = request.rs.providers
     let realm = request.options.realm
-    let jwt = request.jwt
-    let iss = jwt.payload.iss
+    let token = request.token
+    let iss = token.iss
 
     return providers.resolve(iss).then(provider => {
       // key matched
-      if (jwt.resolveKeys(provider.jwks)) {
+      if (token.resolveKeys(provider.jwks)) {
         return request
 
       // try rotating keys
       } else {
         return providers.rotate(iss).then(provider => {
           // key matched
-          if (jwt.resolveKeys(provider.jwks)) {
+          if (token.resolveKeys(provider.jwks)) {
             return request
 
           // failed to match signing key
@@ -419,9 +425,9 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   verifySignature (request) {
-    let {jwt, options: {realm}} = request
+    let {token, options: {realm}} = request
 
-    return jwt.verify().then(verified => {
+    return token.verifySignature().then(verified => {
       if (!verified) {
         request.unauthorized({realm})
       }
@@ -441,14 +447,15 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateExpiry (request) {
-    let {jwt, options: {realm}} = request
-    let exp = jwt.payload.exp
+    let {token, options: {realm}} = request
 
-    if (exp < Math.floor(Date.now() / 1000)) {
+    try {
+      token.validateExpiry()
+    } catch (err) {
       return request.unauthorized({
         realm,
-        error: 'invalid_token',
-        error_description: 'Access token is expired'
+        error: err.error,
+        error_description: err.error_description
       })
     }
 
@@ -466,14 +473,15 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateNotBefore (request) {
-    let {jwt, options: {realm}} = request
-    let nbf = jwt.payload.nbf
+    let {token, options: {realm}} = request
 
-    if (nbf >= Math.ceil(Date.now() / 1000)) {
+    try {
+      token.validateNotBefore()
+    } catch (err) {
       return request.unauthorized({
         realm,
-        error: 'invalid_token',
-        error_description: 'Access token is not yet active'
+        error: err.error,
+        error_description: err.error_description
       })
     }
 
@@ -492,25 +500,16 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateScope (request) {
-    let {jwt, options: {realm, scopes}} = request
-    let scope = jwt.payload.scope
+    let {token, options: {realm, scopes}} = request
 
-    // ensure scope is an array
-    if (typeof scope === 'string') {
-      scope = scope.split(' ')
-    }
-
-    // only validate scopes if configured
-    if (Array.isArray(scopes)) {
-
-      // ensure all expected scopes are present in the token
-      if (!scope || !scopes.every(expected => scope.includes(expected))) {
-        return request.forbidden({
-          realm,
-          error: 'insufficient_scope',
-          error_description: 'Access token has insufficient scope'
-        })
-      }
+    try {
+      token.validateScope(scopes)
+    } catch (err) {
+      return request.forbidden({
+        realm,
+        error: err.error,
+        error_description: err.error_description
+      })
     }
 
     return request
@@ -525,15 +524,15 @@ class AuthenticatedRequest {
    * @param {AuthenticatedRequest} request
    */
   success (request) {
-    let {req, token, jwt, options} = request
+    let {req, token, options} = request
     let {tokenProperty, claimsProperty} = options
 
-    if (jwt) {
-      req[claimsProperty || 'claims'] = jwt.payload
+    if (token) {
+      req[claimsProperty || 'claims'] = token.claims
     }
 
-    if (jwt && tokenProperty) {
-      req[tokenProperty] = jwt
+    if (token && tokenProperty) {
+      req[tokenProperty] = token.accessToken
     }
 
     request.next()

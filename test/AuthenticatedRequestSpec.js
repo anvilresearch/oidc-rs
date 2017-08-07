@@ -20,6 +20,7 @@ let expect = chai.expect
  */
 const AuthenticatedRequest = require('../src/AuthenticatedRequest')
 const ResourceServer = require('../src/ResourceServer')
+const BearerToken = require('../src/BearerToken')
 
 /**
  * Tests
@@ -371,18 +372,19 @@ describe('AuthenticatedRequest', () => {
         }
       }
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = {
+      request.token = BearerToken.from({
         payload: {
           iss: 'issuer1', aud: 'aud1', sub: 'subj1'
         }
-      }
+      })
+
       sinon.spy(request, 'forbidden')
     })
 
     describe('with allow not defined in options', () => {
       it('should return its argument', () => {
         request.options.allow = undefined
-        request.jwt.payload = {}
+        request.token.accessToken.payload = {}
 
         let result = request.allow(request)
 
@@ -392,7 +394,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with configured issuers and unknown issuer', () => {
       it('should throw an error', done => {
-        request.jwt.payload.iss = 'some-issuer'
+        request.token.accessToken.payload.iss = 'some-issuer'
 
         try {
           request.allow(request)
@@ -405,7 +407,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.iss = 'some-issuer'
+        request.token.accessToken.payload.iss = 'some-issuer'
 
         try {
           request.allow(request)
@@ -419,7 +421,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with configured audience and unknown client', () => {
       it('should throw an error', done => {
-        request.jwt.payload.aud = 'some-client'
+        request.token.accessToken.payload.aud = 'some-client'
 
         try {
           request.allow(request)
@@ -432,7 +434,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.aud = 'some-client'
+        request.token.accessToken.payload.aud = 'some-client'
 
         try {
           request.allow(request)
@@ -446,7 +448,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with configured subjects and unknown subject', () => {
       it('should throw an error', done => {
-        request.jwt.payload.sub = 'some-subject'
+        request.token.accessToken.payload.sub = 'some-subject'
 
         try {
           request.allow(request)
@@ -459,7 +461,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.sub = 'some-subject'
+        request.token.accessToken.payload.sub = 'some-subject'
 
         try {
           request.allow(request)
@@ -493,7 +495,7 @@ describe('AuthenticatedRequest', () => {
         }
       }
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = { payload: {} }
+      request.token = BearerToken.from({ payload: {} })
 
       sinon.spy(request, 'forbidden')
     })
@@ -510,7 +512,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with configured issuers and matching issuer', () => {
       it('should throw an error', done => {
-        request.jwt.payload.iss = 'issuer1'
+        request.token.accessToken.payload.iss = 'issuer1'
 
         try {
           request.deny(request)
@@ -523,7 +525,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.iss = 'issuer1'
+        request.token.accessToken.payload.iss = 'issuer1'
 
         try {
           request.deny(request)
@@ -537,7 +539,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with configured audience and matching client', () => {
       it('should throw an error', done => {
-        request.jwt.payload.aud = 'aud1'
+        request.token.accessToken.payload.aud = 'aud1'
 
         try {
           request.deny(request)
@@ -550,7 +552,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.aud = 'aud1'
+        request.token.accessToken.payload.aud = 'aud1'
 
         try {
           request.deny(request)
@@ -564,7 +566,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with configured subjects and matching subject', () => {
       it('should throw an error', done => {
-        request.jwt.payload.sub = 'subj1'
+        request.token.accessToken.payload.sub = 'subj1'
 
         try {
           request.deny(request)
@@ -577,7 +579,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.sub = 'subj1'
+        request.token.accessToken.payload.sub = 'subj1'
 
         try {
           request.deny(request)
@@ -591,7 +593,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with permitted request', () => {
       it('should return its argument', () => {
-        request.jwt.payload = {
+        request.token.accessToken.payload = {
           iss: 'valid-issuer', aud: 'valid-client', sub: 'valid-subj'
         }
 
@@ -614,10 +616,10 @@ describe('AuthenticatedRequest', () => {
 
       provider = { jwks: {} }
 
-      request.jwt = {
+      request.token = BearerToken.from({
         payload: { iss: issuer },
         resolveKeys: sinon.stub().withArgs(provider.jwks).returns(true)
-      }
+      })
 
       providersCache = {
         resolve: sinon.stub().withArgs(issuer).resolves(provider),
@@ -642,9 +644,9 @@ describe('AuthenticatedRequest', () => {
     })
 
     it('should rotate provider keys if initially they are not resolved', () => {
-      request.jwt.resolveKeys = sinon.stub()
-      request.jwt.resolveKeys.onCall(0).returns(false)
-      request.jwt.resolveKeys.onCall(1).returns(true)
+      request.token.accessToken.resolveKeys = sinon.stub()
+      request.token.accessToken.resolveKeys.onCall(0).returns(false)
+      request.token.accessToken.resolveKeys.onCall(1).returns(true)
 
       return request.resolveKeys(request)
         .then(result => {
@@ -654,7 +656,7 @@ describe('AuthenticatedRequest', () => {
     })
 
     it('should reject with an error if keys do not resolve', done => {
-      request.jwt.resolveKeys = sinon.stub().returns(false)
+      request.token.accessToken.resolveKeys = sinon.stub().returns(false)
 
       request.resolveKeys(request)
         .catch(err => {
@@ -673,14 +675,14 @@ describe('AuthenticatedRequest', () => {
       res = HttpMocks.createResponse()
       options = { realm }
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = {}
+      request.token = BearerToken.from({})
 
       sinon.spy(request, 'unauthorized')
     })
 
     describe('with invalid signature', () => {
       it('should reject with a 401 error', done => {
-        request.jwt.verify = sinon.stub().resolves(false)
+        request.token.verifySignature = sinon.stub().resolves(false)
 
         request.verifySignature(request)
           .catch(err => {
@@ -691,7 +693,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should reject via "Unauthorized', done => {
-        request.jwt.verify = sinon.stub().resolves(false)
+        request.token.verifySignature = sinon.stub().resolves(false)
 
         request.verifySignature(request)
           .catch(err => {
@@ -704,7 +706,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with verified signature', () => {
       it('should resolve its argument', () => {
-        request.jwt.verify = sinon.stub().resolves(true)
+        request.token.verifySignature = sinon.stub().resolves(true)
 
         return request.verifySignature(request)
           .then(result => {
@@ -720,14 +722,14 @@ describe('AuthenticatedRequest', () => {
       res = HttpMocks.createResponse()
       options = { realm }
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = { payload: {} }
+      request.token = BearerToken.from({ payload: {} })
 
       sinon.spy(request, 'unauthorized')
     })
 
     describe('with expired token', () => {
       it('should throw a 401 error', done => {
-        request.jwt.payload.exp = Math.floor(Date.now() / 1000) - 100
+        request.token.accessToken.payload.exp = Math.floor(Date.now() / 1000) - 100
 
         try {
           request.validateExpiry(request)
@@ -741,7 +743,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Unauthorized', done => {
-        request.jwt.payload.exp = Math.floor(Date.now() / 1000) - 100
+        request.token.accessToken.payload.exp = Math.floor(Date.now() / 1000) - 100
 
         try {
           request.validateExpiry(request)
@@ -755,7 +757,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with valid exp', () => {
       it('should resolve its argument', () => {
-        request.jwt.payload.exp = Math.floor(Date.now() / 1000) + 1000
+        request.token.accessToken.payload.exp = Math.floor(Date.now() / 1000) + 1000
 
         let result = request.validateExpiry(request)
 
@@ -770,14 +772,14 @@ describe('AuthenticatedRequest', () => {
       res = HttpMocks.createResponse()
       options = { realm }
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = { payload: {} }
+      request.token = BearerToken.from({ payload: {} })
 
       sinon.spy(request, 'unauthorized')
     })
 
     describe('with future valid token', () => {
       it('should throw a 401 error', done => {
-        request.jwt.payload.nbf = Math.ceil(Date.now() / 1000) + 1000
+        request.token.accessToken.payload.nbf = Math.ceil(Date.now() / 1000) + 1000
 
         try {
           request.validateNotBefore(request)
@@ -791,7 +793,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Unauthorized', done => {
-        request.jwt.payload.nbf = Math.ceil(Date.now() / 1000) + 1000
+        request.token.accessToken.payload.nbf = Math.ceil(Date.now() / 1000) + 1000
 
         try {
           request.validateNotBefore(request)
@@ -805,7 +807,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with valid nbf', () => {
       it('should return its argument', () => {
-        request.jwt.payload.nbf = Math.ceil(Date.now() / 1000) - 1000
+        request.token.accessToken.payload.nbf = Math.ceil(Date.now() / 1000) - 1000
 
         let result = request.validateNotBefore(request)
 
@@ -824,7 +826,7 @@ describe('AuthenticatedRequest', () => {
       }
 
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = { payload: {} }
+      request.token = BearerToken.from({ payload: {} })
 
       sinon.spy(request, 'forbidden')
     })
@@ -865,7 +867,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with partial / insufficient scope', () => {
       it('should throw a 403 error', done => {
-        request.jwt.payload.scope = 'scope1'  // one out of two scopes present
+        request.token.accessToken.payload.scope = 'scope1'  // one out of two scopes present
 
         try {
           request.validateScope(request)
@@ -879,7 +881,7 @@ describe('AuthenticatedRequest', () => {
       })
 
       it('should throw via "Forbidden', done => {
-        request.jwt.payload.scope = ['scope1']  // one out of two scopes present
+        request.token.accessToken.payload.scope = ['scope1']  // one out of two scopes present
 
         try {
           request.validateScope(request)
@@ -893,7 +895,7 @@ describe('AuthenticatedRequest', () => {
 
     describe('with sufficient scope', () => {
       it('should return its argument', () => {
-        request.jwt.payload.scope = 'scope1 scope2'
+        request.token.accessToken.payload.scope = 'scope1 scope2'
 
         let result = request.validateScope(request)
 
@@ -910,7 +912,7 @@ describe('AuthenticatedRequest', () => {
       options = {}
 
       request = new AuthenticatedRequest(rs, req, res, next, options)
-      request.jwt = { payload: {} }
+      request.token = BearerToken.from({ payload: {} })
     })
 
     it('should pass control to next middleware', () => {
