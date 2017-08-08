@@ -6,7 +6,6 @@
 const path = require('path')
 const chai = require('chai')
 const sinon = require('sinon')
-const HttpMocks = require('node-mocks-http')
 
 /**
  * Assertions
@@ -19,18 +18,19 @@ let expect = chai.expect
 /**
  * Code under test
  */
-const BearerToken = require('../src/BearerToken')
+const AccessToken = require('../src/AccessToken')
+const Credential = require('../src/Credential')
 
 /**
  * Tests
  */
-describe('BearerToken', () => {
+describe('AccessToken', () => {
   describe('from', () => {
     it('should create a bearer token instance', () => {
       let jwt = { header: {}, payload: {} }
-      let token = BearerToken.from(jwt)
+      let token = Credential.from(jwt)
 
-      expect(token.accessToken).to.equal(jwt)
+      expect(token.jwt).to.equal(jwt)
     })
   })
 
@@ -42,7 +42,7 @@ describe('BearerToken', () => {
         sub: 'user123'
       }
     }
-    const token = BearerToken.from(jwt)
+    const token = Credential.from(jwt)
 
     it('should return the jwt payload iss', () => {
       let { iss } = token

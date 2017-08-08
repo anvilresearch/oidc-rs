@@ -2,7 +2,7 @@
  * Dependencies
  */
 const {JWT} = require('@trust/jose')
-const BearerToken = require('./BearerToken')
+const Credential = require('./Credential')
 
 /**
  * Errors
@@ -225,6 +225,7 @@ class AuthenticatedRequest {
     let {token, options} = request
 
     if (options.optional && !token) {
+      // Token not required and none present -- pass through
       return Promise.resolve(request)
     }
 
@@ -273,7 +274,7 @@ class AuthenticatedRequest {
     }
 
     try {
-      request.token = BearerToken.from(jwt)
+      request.credential = Credential.from(jwt)
     } catch (err) {
       return request.badRequest(err.error_description)
     }
@@ -289,22 +290,26 @@ class AuthenticatedRequest {
    *
    * @param {AuthenticatedRequest} request
    *
-   * @returns {AuthenticatedRequest}
+   * @returns {Promise<AuthenticatedRequest>}
    */
   validatePoPToken (request) {
-    let {token, options: {realm}} = request
+    let {credential, options: {realm}} = request
 
-    try {
-      token.validatePoPToken()
-    } catch (err) {
-      return request.unauthorized({
-        realm,
-        error: err.error,
-        error_description: err.error_description
-      })
+    if (!credential.isPoPToken) {
+      return Promise.resolve(request)  // only applies to PoP tokens
     }
 
-    return request
+    return credential.validatePoPToken()
+
+      .then(() => request)
+
+      .catch(err => {
+        return request.unauthorized({
+          realm,
+          error: err.error || 'invalid_token',
+          error_description: err.error_description || 'Invalid PoP token'
+        })
+      })
   }
 
   /**
@@ -319,14 +324,14 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   allow (request) {
-    let {token, options} = request
+    let {credential, options} = request
     let {allow, realm} = options
 
     if (!allow) {
       return request
     }
 
-    let {iss, aud, sub} = token
+    let {iss, aud, sub} = credential
     let {issuers, audience, subjects} = allow
 
     if (issuers && !issuers.includes(iss)) {
@@ -360,14 +365,14 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   deny (request) {
-    let {token, options} = request
+    let {credential, options} = request
     let {deny, realm} = options
 
     if (!deny) {
       return request
     }
 
-    let {iss, aud, sub} = token
+    let {iss, aud, sub} = credential
     let {issuers, audience, subjects} = deny
 
     if (issuers && issuers.includes(iss)) {
@@ -413,19 +418,19 @@ class AuthenticatedRequest {
   resolveKeys (request) {
     let providers = request.rs.providers
     let realm = request.options.realm
-    let token = request.token
-    let iss = token.iss
+    let credential = request.credential
+    let iss = credential.iss
 
     return providers.resolve(iss).then(provider => {
       // key matched
-      if (token.resolveKeys(provider.jwks)) {
+      if (credential.resolveKeys(provider.jwks)) {
         return request
 
       // try rotating keys
       } else {
         return providers.rotate(iss).then(provider => {
           // key matched
-          if (token.resolveKeys(provider.jwks)) {
+          if (credential.resolveKeys(provider.jwks)) {
             return request
 
           // failed to match signing key
@@ -452,9 +457,9 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   verifySignature (request) {
-    let {token, options: {realm}} = request
+    let {credential, options: {realm}} = request
 
-    return token.verifySignature().then(verified => {
+    return credential.verifySignature().then(verified => {
       if (!verified) {
         request.unauthorized({realm})
       }
@@ -474,10 +479,10 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateExpiry (request) {
-    let {token, options: {realm}} = request
+    let {credential, options: {realm}} = request
 
     try {
-      token.validateExpiry()
+      credential.validateExpiry()
     } catch (err) {
       return request.unauthorized({
         realm,
@@ -500,10 +505,10 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateNotBefore (request) {
-    let {token, options: {realm}} = request
+    let {credential, options: {realm}} = request
 
     try {
-      token.validateNotBefore()
+      credential.validateNotBefore()
     } catch (err) {
       return request.unauthorized({
         realm,
@@ -527,10 +532,10 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateScope (request) {
-    let {token, options: {realm, scopes}} = request
+    let {credential, options: {realm, scopes}} = request
 
     try {
-      token.validateScope(scopes)
+      credential.validateScope(scopes)
     } catch (err) {
       return request.forbidden({
         realm,
@@ -551,15 +556,15 @@ class AuthenticatedRequest {
    * @param {AuthenticatedRequest} request
    */
   success (request) {
-    let {req, token, options} = request
+    let {req, credential, options} = request
     let {tokenProperty, claimsProperty} = options
 
-    if (token) {
-      req[claimsProperty || 'claims'] = token.claims
+    if (credential) {
+      req[claimsProperty || 'claims'] = credential.claims
     }
 
-    if (token && tokenProperty) {
-      req[tokenProperty] = token.accessToken
+    if (credential && tokenProperty) {
+      req[tokenProperty] = credential.jwt
     }
 
     request.next()
@@ -676,7 +681,7 @@ class AuthenticatedRequest {
    * @param error {Error}
    */
   error (error) {
-    console.log('In rs.error():', error)
+    // console.log('In rs.error():', error)
 
     if (!error.handled) {
       this.internalServerError(error)
