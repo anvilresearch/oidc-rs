@@ -2,6 +2,7 @@
  * Dependencies
  */
 const {JWT} = require('@trust/jose')
+const Credential = require('./Credential')
 
 /**
  * Errors
@@ -9,7 +10,7 @@ const {JWT} = require('@trust/jose')
 const {
   BadRequestError,
   ForbiddenError,
-  InternalServerError,
+  // InternalServerError,
   UnauthorizedError
 } = require('./errors')
 
@@ -224,11 +225,13 @@ class AuthenticatedRequest {
     let {token, options} = request
 
     if (options.optional && !token) {
+      // Token not required and none present -- pass through
       return Promise.resolve(request)
     }
 
     return Promise.resolve(request)
       .then(request.decode)
+      .then(request.validatePoPToken)
       .then(request.allow)
       .then(request.deny)
       .then(request.resolveKeys)
@@ -270,8 +273,43 @@ class AuthenticatedRequest {
       return request.badRequest('Access token is invalid')
     }
 
-    request.jwt = jwt
+    try {
+      request.credential = Credential.from(jwt)
+    } catch (err) {
+      return request.badRequest(err.error_description)
+    }
+
     return request
+  }
+
+  /**
+   * validatePoPToken
+   *
+   * @description
+   * Validate the outer Proof of Possession token, if applicable.
+   *
+   * @param {AuthenticatedRequest} request
+   *
+   * @returns {Promise<AuthenticatedRequest>}
+   */
+  validatePoPToken (request) {
+    let {credential, options: {realm}} = request
+
+    if (!credential.isPoPToken) {
+      return Promise.resolve(request)  // only applies to PoP tokens
+    }
+
+    return credential.validatePoPToken()
+
+      .then(() => request)
+
+      .catch(err => {
+        return request.unauthorized({
+          realm,
+          error: err.error || 'invalid_token',
+          error_description: err.error_description || 'Invalid PoP token'
+        })
+      })
   }
 
   /**
@@ -286,14 +324,14 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   allow (request) {
-    let {jwt, options} = request
+    let {credential, options} = request
     let {allow, realm} = options
 
     if (!allow) {
       return request
     }
 
-    let {iss, aud, sub} = jwt.payload
+    let {iss, aud, sub} = credential
     let {issuers, audience, subjects} = allow
 
     if (issuers && !issuers.includes(iss)) {
@@ -327,14 +365,14 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   deny (request) {
-    let {jwt, options} = request
+    let {credential, options} = request
     let {deny, realm} = options
 
     if (!deny) {
       return request
     }
 
-    let {iss, aud, sub} = jwt.payload
+    let {iss, aud, sub} = credential
     let {issuers, audience, subjects} = deny
 
     if (issuers && issuers.includes(iss)) {
@@ -380,19 +418,19 @@ class AuthenticatedRequest {
   resolveKeys (request) {
     let providers = request.rs.providers
     let realm = request.options.realm
-    let jwt = request.jwt
-    let iss = jwt.payload.iss
+    let credential = request.credential
+    let iss = credential.iss
 
     return providers.resolve(iss).then(provider => {
       // key matched
-      if (jwt.resolveKeys(provider.jwks)) {
+      if (credential.resolveKeys(provider.jwks)) {
         return request
 
       // try rotating keys
       } else {
         return providers.rotate(iss).then(provider => {
           // key matched
-          if (jwt.resolveKeys(provider.jwks)) {
+          if (credential.resolveKeys(provider.jwks)) {
             return request
 
           // failed to match signing key
@@ -419,9 +457,9 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   verifySignature (request) {
-    let {jwt, options: {realm}} = request
+    let {credential, options: {realm}} = request
 
-    return jwt.verify().then(verified => {
+    return credential.verifySignature().then(verified => {
       if (!verified) {
         request.unauthorized({realm})
       }
@@ -441,14 +479,15 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateExpiry (request) {
-    let {jwt, options: {realm}} = request
-    let exp = jwt.payload.exp
+    let {credential, options: {realm}} = request
 
-    if (exp < Math.floor(Date.now() / 1000)) {
+    try {
+      credential.validateExpiry()
+    } catch (err) {
       return request.unauthorized({
         realm,
-        error: 'invalid_token',
-        error_description: 'Access token is expired'
+        error: err.error,
+        error_description: err.error_description
       })
     }
 
@@ -466,14 +505,15 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateNotBefore (request) {
-    let {jwt, options: {realm}} = request
-    let nbf = jwt.payload.nbf
+    let {credential, options: {realm}} = request
 
-    if (nbf >= Math.ceil(Date.now() / 1000)) {
+    try {
+      credential.validateNotBefore()
+    } catch (err) {
       return request.unauthorized({
         realm,
-        error: 'invalid_token',
-        error_description: 'Access token is not yet active'
+        error: err.error,
+        error_description: err.error_description
       })
     }
 
@@ -492,25 +532,16 @@ class AuthenticatedRequest {
    * @returns {AuthenticatedRequest}
    */
   validateScope (request) {
-    let {jwt, options: {realm, scopes}} = request
-    let scope = jwt.payload.scope
+    let {credential, options: {realm, scopes}} = request
 
-    // ensure scope is an array
-    if (typeof scope === 'string') {
-      scope = scope.split(' ')
-    }
-
-    // only validate scopes if configured
-    if (Array.isArray(scopes)) {
-
-      // ensure all expected scopes are present in the token
-      if (!scope || !scopes.every(expected => scope.includes(expected))) {
-        return request.forbidden({
-          realm,
-          error: 'insufficient_scope',
-          error_description: 'Access token has insufficient scope'
-        })
-      }
+    try {
+      credential.validateScope(scopes)
+    } catch (err) {
+      return request.forbidden({
+        realm,
+        error: err.error,
+        error_description: err.error_description
+      })
     }
 
     return request
@@ -525,15 +556,15 @@ class AuthenticatedRequest {
    * @param {AuthenticatedRequest} request
    */
   success (request) {
-    let {req, token, jwt, options} = request
+    let {req, credential, options} = request
     let {tokenProperty, claimsProperty} = options
 
-    if (jwt) {
-      req[claimsProperty || 'claims'] = jwt.payload
+    if (credential) {
+      req[claimsProperty || 'claims'] = credential.claims
     }
 
-    if (jwt && tokenProperty) {
-      req[tokenProperty] = jwt
+    if (credential && tokenProperty) {
+      req[tokenProperty] = credential.jwt
     }
 
     request.next()
@@ -650,7 +681,7 @@ class AuthenticatedRequest {
    * @param error {Error}
    */
   error (error) {
-    console.log('In rs.error():', error)
+    // console.log('In rs.error():', error)
 
     if (!error.handled) {
       this.internalServerError(error)
