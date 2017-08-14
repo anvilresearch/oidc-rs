@@ -48,21 +48,21 @@ class PoPToken {
    * @return {Object}
    */
   get claims () {
-    return this.accessToken.payload
+    return this.accessToken.jwt.payload
   }
 
   /**
    * @returns {string}
    */
   get iss () {
-    return this.accessToken.payload.iss
+    return this.accessToken.jwt.payload.iss
   }
 
   /**
    * @returns {string}
    */
   get sub () {
-    return this.accessToken.payload.sub
+    return this.accessToken.jwt.payload.sub
   }
 
   /**
@@ -147,7 +147,6 @@ class PoPToken {
     }
 
     return this.importConfirmationKey()
-
       .then(() => {
         return this.popToken.verify()
           .catch(() => {
@@ -163,6 +162,8 @@ class PoPToken {
             error_description: 'Invalid PoP token signature'
           })
         }
+
+        return true
       })
   }
 
@@ -170,7 +171,7 @@ class PoPToken {
    * @returns {Promise}
    */
   importConfirmationKey () {
-    let cnfJwk = this.accessToken.payload.cnf
+    let cnfJwk = this.accessToken.jwt.payload.cnf.jwk
 
     if (!cnfJwk) {
       return Promise.reject(new UnauthorizedError({
@@ -206,7 +207,7 @@ class PoPToken {
       })
     }
 
-    let audience = this.accessToken.payload.aud
+    let audience = this.accessToken.jwt.payload.aud
 
     // Audience is either an array or a string (for single audiences)
     if (typeof audience === 'string') {
