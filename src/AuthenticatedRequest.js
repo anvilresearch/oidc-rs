@@ -335,19 +335,35 @@ class AuthenticatedRequest {
     let {issuers, audience, subjects} = allow
 
     if (issuers && !issuers.includes(iss)) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Issuer is not on the allowed list'
+      })
     }
 
     if (Array.isArray(aud) && audience && !audience.some(id => aud.includes(id))) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Audience is not on the allowed list'
+      })
     }
 
     if (typeof aud === 'string' && audience && !audience.includes(aud)) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Audience is not on the allowed list'
+      })
     }
 
     if (subjects && !subjects.includes(sub)) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Subject is not on the allowed list'
+      })
     }
 
     return request
@@ -376,19 +392,35 @@ class AuthenticatedRequest {
     let {issuers, audience, subjects} = deny
 
     if (issuers && issuers.includes(iss)) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Issuer is on the deny blacklist'
+      })
     }
 
     if (Array.isArray(aud) && audience.some(id => aud.includes(id))) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Audience is on the deny blacklist'
+      })
     }
 
     if (typeof aud === 'string' && audience.includes(aud)) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Audience is on the deny blacklist'
+      })
     }
 
     if (subjects && subjects.includes(sub)) {
-      return request.forbidden({realm})
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Subject is on the deny blacklist'
+      })
     }
 
     return request
@@ -639,7 +671,7 @@ class AuthenticatedRequest {
    * 403 Forbidden
    *
    * @description
-   * Respond with 401 status code and WWW-Authenticate challenge.
+   * Respond with 403 status code and WWW-Authenticate challenge.
    *
    * @param {Object} params
    * @returns {Promise}
