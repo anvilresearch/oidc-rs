@@ -321,52 +321,149 @@ class AuthenticatedRequest {
    *
    * @param {AuthenticatedRequest} request
    *
+   * @throws {ForbiddenError}
+   *
    * @returns {AuthenticatedRequest}
    */
   allow (request) {
-    let {credential, options} = request
-    let {allow, realm} = options
+    let { options: { allow } } = request
 
     if (!allow) {
       return request
     }
 
-    let {iss, aud, sub} = credential
-    let {issuers, audience, subjects} = allow
+    request.allowAudience(request)
 
-    if (issuers && !issuers.includes(iss)) {
+    request.allowIssuer(request)
+
+    request.allowSubject(request)
+
+    return request
+  }
+
+  /**
+   * allowAudience
+   *
+   * @description
+   * Filters the credential's audience claim using the "allow" option.
+   *
+   * @param {AuthenticatedRequest} request
+   *
+   * @throws {ForbiddenError}
+   */
+  allowAudience (request) {
+    let { options, credential: { aud } } = request
+    let { realm, allow: { audience } } = options
+
+    if (!audience) {
+      return
+    }
+
+    if (typeof audience === 'function') {
+      if (audience(aud)) {
+        return  // token passes the audience filter test
+      } else {
+        return request.forbidden({
+          realm,
+          error: 'access_denied',
+          error_description: 'Token does not pass the audience allow filter'
+        })
+      }
+    }
+
+    if (Array.isArray(aud) && !audience.some(id => aud.includes(id))) {
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Audience is not on the allowed list'
+      })
+    }
+
+    if (typeof aud === 'string' && !audience.includes(aud)) {
+      return request.forbidden({
+        realm,
+        error: 'access_denied',
+        error_description: 'Audience is not on the allowed list'
+      })
+    }
+  }
+
+  /**
+   * allowIssuer
+   *
+   * @description
+   * Filters the credential's issuer claim using the "allow" option.
+   *
+   * @param {AuthenticatedRequest} request
+   *
+   * @throws {ForbiddenError}
+   */
+  allowIssuer (request) {
+    let { options, credential: { iss } } = request
+    let { realm, allow: { issuers } } = options
+
+    if (!issuers) {
+      return
+    }
+
+    if (typeof issuers === 'function') {
+      if (issuers(iss)) {
+        return  // token passes the issuer filter test
+      } else {
+        return request.forbidden({
+          realm,
+          error: 'access_denied',
+          error_description: 'Token does not pass the issuer allow filter'
+        })
+      }
+    }
+
+    if (!issuers.includes(iss)) {
       return request.forbidden({
         realm,
         error: 'access_denied',
         error_description: 'Issuer is not on the allowed list'
       })
     }
+  }
 
-    if (Array.isArray(aud) && audience && !audience.some(id => aud.includes(id))) {
-      return request.forbidden({
-        realm,
-        error: 'access_denied',
-        error_description: 'Audience is not on the allowed list'
-      })
+  /**
+   * allowSubject
+   *
+   * @description
+   * Filters the credential's subject claim using the "allow" option.
+   *
+   * @param {AuthenticatedRequest} request
+   *
+   * @throws {ForbiddenError}
+   */
+  allowSubject (request) {
+    let { options, credential: { sub } } = request
+    let { realm, allow: { subjects } } = options
+
+    if (!subjects) {
+      return
     }
 
-    if (typeof aud === 'string' && audience && !audience.includes(aud)) {
-      return request.forbidden({
-        realm,
-        error: 'access_denied',
-        error_description: 'Audience is not on the allowed list'
-      })
+    if (typeof subjects === 'function') {
+      if (subjects(sub)) {
+        return  // token passes the subjects filter test
+      } else {
+        return request.forbidden({
+          realm,
+          error: 'access_denied',
+          error_description: 'Token does not pass the subject allow filter'
+        })
+      }
     }
 
-    if (subjects && !subjects.includes(sub)) {
+    if (!subjects.includes(sub)) {
       return request.forbidden({
         realm,
         error: 'access_denied',
         error_description: 'Subject is not on the allowed list'
       })
     }
-
-    return request
   }
 
   /**
@@ -609,8 +706,6 @@ class AuthenticatedRequest {
    * Respond with 400 status code.
    *
    * @param {string} description
-   *
-   * @returns {Promise}
    */
   badRequest (description) {
     let {res, next, options} = this
@@ -642,8 +737,6 @@ class AuthenticatedRequest {
    * Respond with 401 status code and WWW-Authenticate challenge.
    *
    * @param {Object} params
-   *
-   * @returns {Promise}
    */
   unauthorized (params = {}) {
     let {res, next, options} = this
@@ -674,7 +767,6 @@ class AuthenticatedRequest {
    * Respond with 403 status code and WWW-Authenticate challenge.
    *
    * @param {Object} params
-   * @returns {Promise}
    */
   forbidden (params = {}) {
     let {res, next, options} = this
