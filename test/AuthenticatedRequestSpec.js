@@ -446,6 +446,165 @@ describe('AuthenticatedRequest', () => {
       })
     })
 
+    describe('with configured audience filter function', () => {
+      it('should pass if the filter function passes', () => {
+        const audienceFilter = (aud) => {
+          return aud === 'aud1'
+        }
+        options = {
+          realm,
+          allow: {
+            audience: audienceFilter,
+          }
+        }
+        request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.credential = Credential.from({
+          payload: {
+            iss: 'issuer1', aud: 'aud1', sub: 'subj1'
+          }
+        })
+        sinon.spy(request, 'forbidden')
+
+        request.allow(request)
+
+        expect(request.forbidden).to.not.have.been.called()
+      })
+
+      it('should fail if the filter function fails', done => {
+        const audienceFilter = () => { return false }
+        options = {
+          realm,
+          allow: {
+            audience: audienceFilter,
+          }
+        }
+        request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.credential = Credential.from({
+          payload: {
+            iss: 'issuer1', aud: 'aud1', sub: 'subj1'
+          }
+        })
+        sinon.spy(request, 'forbidden')
+
+        try {
+          request.allow(request)
+        } catch (err) {
+          expect(err.message).to.equal('Forbidden')
+          expect(err.statusCode).to.equal(403)
+          expect(err.error).to.equal('access_denied')
+          expect(err.error_description).to.equal('Token does not pass the audience allow filter')
+          expect(err.realm).to.equal(realm)
+          done()
+        }
+      })
+    })
+
+    describe('with configured issuer filter function', () => {
+      it('should pass if the filter function passes', () => {
+        const issuerFilter = (iss) => {
+          return iss === 'issuer1'
+        }
+        options = {
+          realm,
+          allow: {
+            issuers: issuerFilter,
+          }
+        }
+        request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.credential = Credential.from({
+          payload: {
+            iss: 'issuer1', aud: 'aud1', sub: 'subj1'
+          }
+        })
+        sinon.spy(request, 'forbidden')
+
+        request.allow(request)
+
+        expect(request.forbidden).to.not.have.been.called()
+      })
+
+      it('should fail if the filter function fails', done => {
+        const issuerFilter = () => { return false }
+        options = {
+          realm,
+          allow: {
+            issuers: issuerFilter,
+          }
+        }
+        request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.credential = Credential.from({
+          payload: {
+            iss: 'issuer1', aud: 'aud1', sub: 'subj1'
+          }
+        })
+        sinon.spy(request, 'forbidden')
+
+        try {
+          request.allow(request)
+        } catch (err) {
+          expect(err.message).to.equal('Forbidden')
+          expect(err.statusCode).to.equal(403)
+          expect(err.error).to.equal('access_denied')
+          expect(err.error_description).to.equal('Token does not pass the issuer allow filter')
+          expect(err.realm).to.equal(realm)
+          done()
+        }
+      })
+    })
+
+    describe('with configured subject filter function', () => {
+      it('should pass if the filter function passes', () => {
+        const subjectFilter = (sub) => {
+          return sub === 'subj1'
+        }
+        options = {
+          realm,
+          allow: {
+            subjects: subjectFilter,
+          }
+        }
+        request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.credential = Credential.from({
+          payload: {
+            iss: 'issuer1', aud: 'aud1', sub: 'subj1'
+          }
+        })
+        sinon.spy(request, 'forbidden')
+
+        request.allow(request)
+
+        expect(request.forbidden).to.not.have.been.called()
+      })
+
+      it('should fail if the filter function fails', done => {
+        const subjectFilter = () => { return false }
+        options = {
+          realm,
+          allow: {
+            subjects: subjectFilter,
+          }
+        }
+        request = new AuthenticatedRequest(rs, req, res, next, options)
+        request.credential = Credential.from({
+          payload: {
+            iss: 'issuer1', aud: 'aud1', sub: 'subj1'
+          }
+        })
+        sinon.spy(request, 'forbidden')
+
+        try {
+          request.allow(request)
+        } catch (err) {
+          expect(err.message).to.equal('Forbidden')
+          expect(err.statusCode).to.equal(403)
+          expect(err.error).to.equal('access_denied')
+          expect(err.error_description).to.equal('Token does not pass the subject allow filter')
+          expect(err.realm).to.equal(realm)
+          done()
+        }
+      })
+    })
+
     describe('with configured subjects and unknown subject', () => {
       it('should throw an error', done => {
         request.credential.jwt.payload.sub = 'some-subject'
