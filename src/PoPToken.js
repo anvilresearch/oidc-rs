@@ -171,7 +171,8 @@ class PoPToken {
    * @returns {Promise}
    */
   importConfirmationKey () {
-    let cnfJwk = this.accessToken.jwt.payload.cnf.jwk
+    let cnfJwk = this.accessToken.jwt.payload.cnf &&
+      this.accessToken.jwt.payload.cnf.jwk
 
     if (!cnfJwk) {
       return Promise.reject(new UnauthorizedError({
